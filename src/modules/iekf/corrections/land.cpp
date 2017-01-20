@@ -67,7 +67,7 @@ void IEKF::correctLand(uint64_t timestamp)
 	yh(Y_land::vel_N) = _x(X::vel_N);
 	yh(Y_land::vel_E) = _x(X::vel_E);
 	yh(Y_land::vel_D) = _x(X::vel_D);
-	yh(Y_land::agl) = getAgl(_x);
+	yh(Y_land::agl) = getAgl();
 
 	Vector<float, Y_land::n> r = y - yh;
 

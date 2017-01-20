@@ -122,12 +122,16 @@ public:
 			 + _P(Xe::rot_D, Xe::rot_D)) < 1.0f);
 
 	};
-	inline bool getVelocityValid()
+	inline bool getVelocityXYValid()
 	{
 		return ((_P(Xe::vel_N, Xe::vel_N)
-			 + _P(Xe::vel_E, Xe::vel_E)
-			 + _P(Xe::vel_D, Xe::vel_D)) < 3.0f);
+			 + _P(Xe::vel_E, Xe::vel_E)) < 2.0f);
 	};
+	inline bool getVelocityZValid()
+	{
+		return _P(Xe::vel_D, Xe::vel_D) < 1.0f;
+	};
+
 	inline bool getPositionValid()
 	{
 		return _origin.xyInitialized()
@@ -150,38 +154,53 @@ public:
 	{
 		return (_P(Xe::terrain_asl, Xe::terrain_asl) < 1.0f);
 	};
-	inline float getAgl(Vector<float, X::n> &x)
+	inline float getAgl()
 	{
-		return x(X::asl) - x(X::terrain_asl);
+		return _x(X::asl) - _x(X::terrain_asl);
 	}
-	inline float getAltAboveOrigin(Vector<float, X::n> &x)
+	inline float getAltAboveOrigin()
 	{
-		return x(X::asl) - _origin.getAlt();
+		return _x(X::asl) - _origin.getAlt();
 	};
-	static inline Quatf getQuaternionNB(Vector<float, X::n> &x)
+	inline bool getGyroSaturated()
 	{
-		return Quatf(x(X::q_nb_0), x(X::q_nb_1),
-			     x(X::q_nb_2), x(X::q_nb_3));
+		return _gyroSaturated;
 	}
-	static inline Dcmf computeDcmNB(Vector<float, X::n> &x)
+	inline bool getAccelSaturated()
 	{
-		return getQuaternionNB(x);
+		return _accelSaturated;
 	}
-	static inline Vector3f getGyroBias(Vector<float, X::n> &x)
+	inline Quatf getQuaternionNB()
 	{
-		return Vector3f(x(X::gyro_bias_bX), x(X::gyro_bias_bY), x(X::gyro_bias_bZ));
+		return Quatf(_x(X::q_nb_0), _x(X::q_nb_1),
+			     _x(X::q_nb_2), _x(X::q_nb_3));
 	}
-	static inline Vector3f getGyroRaw(Vector<float, U::n> &u)
+	inline Dcmf computeDcmNB()
 	{
-		return Vector3f(u(U::omega_nb_bX), u(U::omega_nb_bY), u(U::omega_nb_bZ));
+		return getQuaternionNB();
 	}
-	static inline Vector3f getAngularVelocityNB(Vector<float, X::n> &x, Vector<float, U::n> &u)
+	inline Vector3f getGyroBiasFrameB()
 	{
-		return getGyroRaw(u) - getGyroBias(x);
+		return Vector3f(_x(X::gyro_bias_bX), _x(X::gyro_bias_bY), _x(X::gyro_bias_bZ));
 	}
+	inline Vector3f getGyroRawFrameB()
+	{
+		return Vector3f(_u(U::omega_nb_bX), _u(U::omega_nb_bY), _u(U::omega_nb_bZ));
+	}
+	inline Vector3f getAngularVelocityNBFrameB()
+	{
+		return getGyroRawFrameB() - getGyroBiasFrameB();
+	}
+	inline Vector3f getAccelerationFrameB()
+	{
+		Vector3f a_b(_u(U::accel_bX), _u(U::accel_bY), _u(U::accel_bZ));
+		Vector3f a_bias_b(_x(X::accel_bias_bX), _x(X::accel_bias_bY), _x(X::accel_bias_bZ));
+		return a_b - a_bias_b;
+	}
+
 	void normalizeQuaternion()
 	{
-		Quatf q = getQuaternionNB(_x);
+		Quatf q = getQuaternionNB();
 		q.normalize();
 		_x(X::q_nb_0) = q(0);
 		_x(X::q_nb_1) = q(1);
@@ -242,7 +261,8 @@ private:
 	uint64_t _stateTimestamp;		// state prediction timestamp
 	uint64_t _covarianceTimestamp;; // covariance prediction timestamp
 	int _imuLowRateIndex;
-
+	bool _accelSaturated;
+	bool _gyroSaturated;
 	SquareMatrix<float, Xe::n> _A;
 	SquareMatrix<float, Xe::n> _Q;
 	Vector<float, Xe::n> _dxe; 		// 	error vector

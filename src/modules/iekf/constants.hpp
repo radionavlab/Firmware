@@ -230,8 +230,10 @@ const float land_sigma_agl = 1e0f; // m
 
 const float terrain_sigma_asl = 0; // (m/s) / sqrt(s)
 const float g = 9.81f;
-const float predict_g_thresh = 5;
+// don't predict if rotation speed > than this
+const float gyro_saturation_thresh = 720 * deg2radf; // rad/s
 // don't predict if accel norm > than this
+const float accel_saturation_thresh = 3 * g; // m/s^2
 
 //#########################################################
 //
@@ -294,7 +296,7 @@ const float flow_sigma_rw = 1e-2f; // rad/s / sqrt(s)
 const float process_noise_sigma_xy = 0; // (m) / sqrt(s)
 const float process_noise_sigma_vxy = 1e-1; // (m/s) / sqrt(s)
 const float process_noise_sigma_z = 0; // (m) / sqrt(s)
-const float process_noise_sigma_vz = 1e-2; // (m/s) / sqrt(s)
+const float process_noise_sigma_vz = 0; // (m/s) / sqrt(s)
 const float process_noise_sigma_rot = 1e-3; // (rad) / sqrt(s)
 
 const float gps_xy_sigma_rw = 2e0f; // m / sqrt(s)
@@ -321,7 +323,7 @@ const float baro_sigma_rw = 5.68e-2f; // m / sqrt(s)
 const float baro_sigma_rrw = 3.80e-2f; // (m/s) / sqrt(s)
 const float baro_correlation_time = 13e3f; // s
 
-const float mag_sigma_rw = 5.43e-3; // normalized mag / sqrt(s)
+const float mag_sigma_rw = 2 * 5.43e-3; // normalized mag / sqrt(s)
 const float mag_sigma_rrw = 3.34e-5; // (normalized mag /s) / sqrt(s)
 const float mag_correlation_time = 1367; // s
 

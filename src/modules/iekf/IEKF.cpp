@@ -86,6 +86,8 @@ IEKF::IEKF() :
 	_stateTimestamp(),
 	_covarianceTimestamp(),
 	_imuLowRateIndex(0),
+	_accelSaturated(false),
+	_gyroSaturated(false),
 	_A(), _Q(), _dxe(), _dP()
 {
 	// for quaterinons we bound at 2
@@ -186,13 +188,10 @@ Vector<float, X::n> IEKF::dynamics(float t, const Vector<float, X::n> &x, const 
 	Quatf dq_nb = q_nb * Quatf(0, omega_nb_b_corrected(0),
 				   omega_nb_b_corrected(1), omega_nb_b_corrected(2)) * 0.5f;
 
-
-	if (getAttitudeValid()) {
-		dx(X::q_nb_0) = dq_nb(0);
-		dx(X::q_nb_1) = dq_nb(1);
-		dx(X::q_nb_2) = dq_nb(2);
-		dx(X::q_nb_3) = dq_nb(3);
-	}
+	dx(X::q_nb_0) = dq_nb(0);
+	dx(X::q_nb_1) = dq_nb(1);
+	dx(X::q_nb_2) = dq_nb(2);
+	dx(X::q_nb_3) = dq_nb(3);
 
 	//ROS_INFO("as_n: %10.4f %10.4f %10.4f",
 	//double(as_n(0)),
@@ -209,20 +208,17 @@ Vector<float, X::n> IEKF::dynamics(float t, const Vector<float, X::n> &x, const 
 	//double(_x(X::wind_E)),
 	//double(_x(X::wind_D)));
 
-	// don't predict during impact
-	if (a_n.norm() < predict_g_thresh * g && getPositionValid()) {
-		dx(X::vel_N) = as_n(0);
-		dx(X::vel_E) = as_n(1);
-		dx(X::vel_D) = as_n(2);
-	}
+	dx(X::gyro_bias_bX) = -_x(X::gyro_bias_bX) / gyro_correlation_time;
+	dx(X::gyro_bias_bY) = -_x(X::gyro_bias_bY) / gyro_correlation_time;
+	dx(X::gyro_bias_bZ) = -_x(X::gyro_bias_bZ) / gyro_correlation_time;
 
-	dx(X::gyro_bias_bX) = 0; //-_x(X::gyro_bias_bX) / gyro_correlation_time;
-	dx(X::gyro_bias_bY) = 0; //-_x(X::gyro_bias_bY) / gyro_correlation_time;
-	dx(X::gyro_bias_bZ) = 0; //-_x(X::gyro_bias_bZ) / gyro_correlation_time;
+	dx(X::accel_bias_bX) = -_x(X::accel_bias_bX) / accel_correlation_time;
+	dx(X::accel_bias_bY) = -_x(X::accel_bias_bY) / accel_correlation_time;
+	dx(X::accel_bias_bZ) = -_x(X::accel_bias_bZ) / accel_correlation_time;
 
-	dx(X::accel_bias_bX) = 0; //-_x(X::accel_bias_bX) / accel_correlation_time;
-	dx(X::accel_bias_bY) = 0; //-_x(X::accel_bias_bY) / accel_correlation_time;
-	dx(X::accel_bias_bZ) = 0; //-_x(X::accel_bias_bZ) / accel_correlation_time;
+	dx(X::vel_N) = as_n(0);
+	dx(X::vel_E) = as_n(1);
+	dx(X::vel_D) = as_n(2);
 
 	dx(X::pos_N) = x(X::vel_N);
 	dx(X::pos_E) = x(X::vel_E);
@@ -231,7 +227,7 @@ Vector<float, X::n> IEKF::dynamics(float t, const Vector<float, X::n> &x, const 
 	// want terrain dynamics to be static, so when out of range it keeps
 	// last estimate and doesn't decay
 	dx(X::terrain_asl) = 0;
-	dx(X::baro_bias) = 0; //-x(X::baro_bias) / baro_correlation_time;
+	dx(X::baro_bias) = -x(X::baro_bias) / baro_correlation_time;
 	//dx(X::wind_N) = -_x(X::wind_N) / wind_correlation_time;
 	//dx(X::wind_E) = -_x(X::wind_E) / wind_correlation_time;
 	//dx(X::wind_D) = -_x(X::wind_D) / wind_correlation_time;
@@ -249,6 +245,27 @@ void IEKF::callbackImu(const sensor_combined_s *msg)
 	_u(U::accel_bX) = msg->accelerometer_m_s2[0];
 	_u(U::accel_bY) = msg->accelerometer_m_s2[1];
 	_u(U::accel_bZ) = msg->accelerometer_m_s2[2];
+
+
+	// update gyro saturation
+	if (Vector3f(_u(U::omega_nb_bX),
+		     _u(U::omega_nb_bY),
+		     _u(U::omega_nb_bZ)).norm() > gyro_saturation_thresh) {
+		_gyroSaturated = true;
+
+	} else {
+		_gyroSaturated = false;
+	}
+
+	// update accel saturation
+	if (Vector3f(_u(U::accel_bX),
+		     _u(U::accel_bY),
+		     _u(U::accel_bZ)).norm() > accel_saturation_thresh) {
+		_accelSaturated = true;
+
+	} else {
+		_accelSaturated = false;
+	}
 
 	if (_attitudeInitialized) {
 
@@ -402,7 +419,7 @@ void IEKF::predictState(const sensor_combined_s *msg)
 	//ROS_INFO("predict state");
 
 	// normalize quaternions if needed
-	float qNorm = getQuaternionNB(_x).norm();
+	float qNorm = getQuaternionNB().norm();
 
 	if (fabsf(qNorm - 1.0f) > 1e-3f) {
 		ROS_INFO("normalizing quaternion, norm was %6.4f\n",
@@ -412,7 +429,7 @@ void IEKF::predictState(const sensor_combined_s *msg)
 
 	//ROS_INFO("prediction rate period: %10.4g", double(dt));
 
-	Quatf q_nb = getQuaternionNB(_x);
+	Quatf q_nb = getQuaternionNB();
 
 	// continuous time kalman filter prediction
 	// integrate runge kutta 4th order
@@ -450,16 +467,10 @@ void IEKF::predictCovariance(const sensor_combined_s *msg)
 	//ROS_INFO("predict covariance");
 
 	//ROS_INFO("covariance prediction rate period: %10.4g", double(dt));
-	Quatf q_nb = getQuaternionNB(_x);
+	Quatf q_nb = getQuaternionNB();
 
 	// rotation rate
-	Vector3f omega_nb_b(
-		_u(U::omega_nb_bX), _u(U::omega_nb_bY), _u(U::omega_nb_bZ));
-	Vector3f gyro_bias_b(
-		_x(X::gyro_bias_bX), _x(X::gyro_bias_bY), _x(X::gyro_bias_bZ));
-	Vector3f omega_nb_b_corrected = omega_nb_b - gyro_bias_b;
-
-	float rotationSpeed = omega_nb_b_corrected.norm();
+	Vector3f omega_nb_b_corrected = getAngularVelocityNBFrameB();
 
 	// define A matrix
 	{
@@ -471,9 +482,7 @@ void IEKF::predictCovariance(const sensor_combined_s *msg)
 		_A(Xe::rot_D, Xe::Xe::gyro_bias_D) = -0.5;
 
 		// derivative of velocity
-		Vector3f a_b(_u(U::accel_bX), _u(U::accel_bY), _u(U::accel_bZ));
-		Vector3f a_bias_b(_x(X::accel_bias_bX), _x(X::accel_bias_bY), _x(X::accel_bias_bZ));
-		Vector3f a_b_corrected = a_b - a_bias_b;
+		Vector3f a_b_corrected = getAccelerationFrameB();
 		Vector3f J_a_n = q_nb.conjugate(a_b_corrected);
 		Matrix<float, 3, 3> a_tmp = -J_a_n.hat() * 2;
 
@@ -506,9 +515,15 @@ void IEKF::predictCovariance(const sensor_combined_s *msg)
 		_A(Xe::baro_bias, Xe::baro_bias) = -1.0f / baro_correlation_time;
 
 		// derivative of gyro bias
-		_A(Xe::gyro_bias_N, Xe::gyro_bias_N) = 0; //-1 / gyro_correlation_time;
-		_A(Xe::gyro_bias_E, Xe::gyro_bias_E) = 0; //-1 / gyro_correlation_time;
-		_A(Xe::gyro_bias_D, Xe::gyro_bias_D) = 0; //-1 / gyro_correlation_time;
+		_A(Xe::gyro_bias_N, Xe::gyro_bias_N) = -1 / gyro_correlation_time;
+		_A(Xe::gyro_bias_E, Xe::gyro_bias_E) = -1 / gyro_correlation_time;
+		_A(Xe::gyro_bias_D, Xe::gyro_bias_D) = -1 / gyro_correlation_time;
+
+		// derivative of accel bias
+		_A(Xe::accel_bias_N, Xe::accel_bias_N) = -1 / accel_correlation_time;
+		_A(Xe::accel_bias_E, Xe::accel_bias_E) = -1 / accel_correlation_time;
+		_A(Xe::accel_bias_D, Xe::accel_bias_D) = -1 / accel_correlation_time;
+
 	}
 
 	// define process noise matrix
@@ -527,9 +542,14 @@ void IEKF::predictCovariance(const sensor_combined_s *msg)
 		float terrain_var_asl = terrain_sigma_asl * terrain_sigma_asl;
 
 		// account for gyro saturation
-		//ROS_INFO("rotation speed %10.4f", double(rotationSpeed));
-		if (rotationSpeed > 10.0f) {
+		if (getGyroSaturated()) {
 			rot_var *= 100;
+		}
+
+		// account for accel saturation
+		if (getAccelSaturated()) {
+			vel_var_z *= 100;
+			vel_var_xy *= 100;
 		}
 
 		_Q.setZero();
@@ -604,7 +624,7 @@ Vector<float, X::n> IEKF::applyErrorCorrection(const Vector<float, Xe::n> &d_xe)
 {
 	Vector<float, X::n> x = _x;
 
-	Quatf q_nb = getQuaternionNB(_x);
+	Quatf q_nb = getQuaternionNB();
 	Quatf d_q_nb = Quatf(0.0f,
 			     d_xe(Xe::rot_N), d_xe(Xe::rot_E), d_xe(Xe::rot_D)) * q_nb;
 
@@ -708,7 +728,7 @@ void IEKF::boundP()
 void IEKF::boundX()
 {
 	// normalize quaternion
-	Quatf q_nb = getQuaternionNB(_x);
+	Quatf q_nb = getQuaternionNB();
 
 	if (fabsf(q_nb.norm() - 1.0f) > 1e-3f) {
 		ROS_INFO("normalizing quaternion, norm was %6.4f\n", double(q_nb.norm()));
@@ -760,15 +780,8 @@ void IEKF::publish()
 	Vector3f wind_rel_b = q_nb.conjugate_inversed(wind_n - vel_n);
 	float airspeed = -wind_rel_b(0); // body -x component aligned with pitot tube
 
-	//bool attitudeValid = sqrtf(_P(Xe::rot_N, Xe::rot_N)
-	//+ _P(Xe::rot_E, Xe::rot_E)
-	//+ _P(Xe::rot_D, Xe::rot_D)) < 0.1f;
-	bool attitudeValid = getAttitudeValid();
-	bool velocityValid = getVelocityValid();
-	bool positionValid = getPositionValid();
-
 	// publish attitude
-	if (attitudeValid) {
+	if (_attitudeInitialized()) {
 		vehicle_attitude_s msg = {};
 		msg.timestamp = now.toNSec() / 1e3;
 		msg.q[0] = _x(X::q_nb_0);
@@ -782,18 +795,18 @@ void IEKF::publish()
 	}
 
 	// publish local position
-	if (_origin.altInitialized()) {
+	{
 		vehicle_local_position_s msg = {};
 		msg.timestamp = now.toNSec() / 1e3;
 		msg.xy_valid = positionValid;
 		msg.z_valid = getAltitudeValid();
-		msg.v_xy_valid = velocityValid;
-		msg.v_z_valid = velocityValid;
+		msg.v_xy_valid = getVelocityXYValid();
+		msg.v_z_valid = getVelocityZValid();
 		msg.x = _x(X::pos_N);
 		msg.y = _x(X::pos_E);
 		// TODO should make z pub an option
 		//msg.z = -getAgl(_x);
-		msg.z = -getAltAboveOrigin(_x);
+		msg.z = -getAltAboveOrigin();
 		msg.delta_xy[0] = 0;
 		msg.delta_xy[1] = 0;
 		msg.delta_z = 0;
@@ -814,7 +827,7 @@ void IEKF::publish()
 		msg.ref_lat = _origin.getLatDeg();
 		msg.ref_lon = _origin.getLonDeg();
 		msg.ref_alt = _origin.getAlt();
-		msg.dist_bottom = getAgl(_x);
+		msg.dist_bottom = getAgl();
 		msg.dist_bottom_rate = -_x(X::vel_D);
 		msg.surface_bottom_timestamp = now.toNSec() / 1e3;
 		msg.dist_bottom_valid = getAglValid();
@@ -824,7 +837,10 @@ void IEKF::publish()
 	}
 
 	// publish global position
-	if (_origin.xyInitialized() && _origin.altInitialized() && velocityValid) {
+	if (_origin.xyInitialized()
+	    && _origin.altInitialized()
+	    && getVelocityXYValid()
+	    && getVelocityZValid()) {
 		double lat_deg = 0;
 		double lon_deg = 0;
 		_origin.northEastToLatLon(_x(X::pos_N), _x(X::pos_E), lat_deg, lon_deg);
@@ -866,7 +882,7 @@ void IEKF::publish()
 		msg.z_vel = _x(X::vel_D);
 		msg.x_pos = _x(X::pos_N);
 		msg.y_pos = _x(X::pos_E);
-		msg.z_pos = -getAltAboveOrigin(_x);
+		msg.z_pos = -getAltAboveOrigin();
 		msg.airspeed = airspeed;
 		msg.airspeed_valid = true;
 		msg.vel_variance[0] = _P(Xe::vel_N, Xe::vel_N);

@@ -51,7 +51,7 @@ void IEKF::correctFlow(const optical_flow_s *msg)
 	//ROS_INFO("correct flow");
 
 	// compute agl
-	float agl = getAgl(_x);
+	float agl = getAgl();
 
 	// init global reference
 	if (_origin.altInitialized() && !_origin.xyInitialized()) {
@@ -68,8 +68,8 @@ void IEKF::correctFlow(const optical_flow_s *msg)
 	}
 
 	// state info
-	Dcmf C_nb = computeDcmNB(_x);
-	Vector3f angVelNB = getAngularVelocityNB(_x, _u);
+	Dcmf C_nb = computeDcmNB();
+	Vector3f angVelNB = getAngularVelocityNBFrameB();
 
 	float vel_N = _x(X::vel_N);
 	float vel_E = _x(X::vel_E);
