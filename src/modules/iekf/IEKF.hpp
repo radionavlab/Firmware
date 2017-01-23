@@ -49,6 +49,7 @@
 #include <uORB/topics/vision_position_estimate.h>
 #include <uORB/topics/att_pos_mocap.h>
 #include <uORB/topics/vehicle_land_detected.h>
+#include <uORB/topics/ekf2_innovations.h>
 
 // publications
 #include <uORB/topics/vehicle_attitude.h>
@@ -132,12 +133,11 @@ public:
 		return _P(Xe::vel_D, Xe::vel_D) < 1.0f;
 	};
 
-	inline bool getPositionValid()
+	inline bool getPositionXYValid()
 	{
 		return _origin.xyInitialized()
 		       && ((_P(Xe::pos_N, Xe::pos_N)
-			    + _P(Xe::pos_E, Xe::pos_E)
-			    + _P(Xe::asl, Xe::asl)) < 3.0f);
+			    + _P(Xe::pos_E, Xe::pos_E)) < 2.0f);
 	};
 	inline bool getAltitudeValid()
 	{
@@ -240,6 +240,7 @@ private:
 	ros::Publisher _pubGlobalPosition;
 	ros::Publisher _pubControlState;
 	ros::Publisher _pubEstimatorStatus;
+	ros::Publisher _pubInnov;
 
 	// data
 	Vector<float, X::n> _x0; 		// initial state vector
@@ -267,4 +268,5 @@ private:
 	SquareMatrix<float, Xe::n> _Q;
 	Vector<float, Xe::n> _dxe; 		// 	error vector
 	SquareMatrix<float, Xe::n> _dP; 	// change in covariance matrix used for checking
+	ekf2_innovations_s _innov;
 };

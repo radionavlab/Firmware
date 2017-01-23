@@ -69,7 +69,7 @@ void IEKF::correctBaro(const sensor_combined_s *msg)
 	_baroAsl = y(0);
 
 	// define R
-	Matrix<float, Y_baro::n, Y_baro::n> R;
+	SquareMatrix<float, Y_baro::n> R;
 	R(Y_baro::asl, Y_baro::asl) = baro_sigma_rw * baro_sigma_rw / dt;
 
 	// define H
@@ -78,7 +78,13 @@ void IEKF::correctBaro(const sensor_combined_s *msg)
 	H(Y_baro::asl, Xe::baro_bias) = 1;
 
 	// kalman correction
-	_sensorBaro.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_baro::n> S;
+	_sensorBaro.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	// XXX ekf2 doesn't record this so we put it into sideslip field
+	_innov.beta_innov = r(0);
+	_innov.beta_innov_var = S(0, 0);
 
 	if (_sensorBaro.shouldCorrect()) {
 		setX(applyErrorCorrection(_dxe));

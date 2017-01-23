@@ -83,7 +83,7 @@ void IEKF::correctAirspeed(const airspeed_s *msg)
 	r(0) = y - yh;
 
 	// define R
-	Matrix<float, Y_airspeed::n, Y_airspeed::n> R;
+	SquareMatrix<float, Y_airspeed::n> R;
 	R(Y_airspeed::airspeed, Y_airspeed::airspeed) = 100.0f / dt;
 
 	// define H
@@ -107,7 +107,11 @@ void IEKF::correctAirspeed(const airspeed_s *msg)
 	//H(Y_airspeed::airspeed, Xe::wind_D) = -C_nb(2, 0);
 
 	// kalman correction
-	_sensorAirspeed.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_airspeed::n> S;
+	_sensorAirspeed.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	_innov.airspeed_innov = r(0);
 
 	if (_sensorAirspeed.shouldCorrect()) {
 		setX(applyErrorCorrection(_dxe));

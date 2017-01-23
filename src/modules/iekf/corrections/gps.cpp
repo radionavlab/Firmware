@@ -125,7 +125,14 @@ void IEKF::correctGps(const vehicle_gps_position_s *msg)
 	H(Y_gps::vel_D, Xe::vel_D) = 1;
 
 	// kalman correction
-	_sensorGps.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_gps::n> S;
+	_sensorGps.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	for (int i = 0; i < 6; i++) {
+		_innov.vel_pos_innov[i] = r(i);
+		_innov.vel_pos_innov_var[i] = S(i, i);
+	}
 
 	if (_sensorGps.shouldCorrect()) {
 		setX(applyErrorCorrection(_dxe));

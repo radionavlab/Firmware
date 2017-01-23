@@ -124,7 +124,8 @@ public:
 		const Matrix<Type, n_y, n_y> &R,
 		const Matrix<Type, n_y, 1> &r,
 		Vector<Type, n_x> &dx,
-		SquareMatrix<Type, n_x> &dP
+		SquareMatrix<Type, n_x> &dP,
+		SquareMatrix<Type, n_y> &S
 	)
 	{
 		//ROS_INFO("R");
@@ -132,11 +133,11 @@ public:
 		dx.setZero();
 		dP.setZero();
 		// tmp = S  = H * P * H^T + R
-		SquareMatrix<Type, n_y> tmp = H * P * H.T() + R;
+		S = H * P * H.T() + R;
 		//ROS_INFO("S");
 		//tmp.print();
 		// tmp = L = cholesky(S)
-		tmp = cholesky(tmp);
+		SquareMatrix<Type, n_y> tmp = cholesky(S);
 		//ROS_INFO("L");
 		//tmp.print();
 		Vector<Type, n_y> d = tmp.diag();

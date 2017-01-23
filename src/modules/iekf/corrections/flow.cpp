@@ -119,7 +119,7 @@ void IEKF::correctFlow(const optical_flow_s *msg)
 	//ROS_INFO("float dt: %10.4f", double(dt));
 
 	// define R
-	Matrix<float, Y_flow::n, Y_flow::n> R;
+	SquareMatrix<float, Y_flow::n> R;
 	float flow_var = (flow_sigma_rw * flow_sigma_rw) / dt;
 	R(Y_flow::flowX, Y_flow::flowX) = flow_var;
 	R(Y_flow::flowY, Y_flow::flowY) = flow_var;
@@ -184,7 +184,14 @@ void IEKF::correctFlow(const optical_flow_s *msg)
 	}
 
 	// kalman correction
-	_sensorFlow.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_flow::n> S;
+	_sensorFlow.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	for (int i = 0; i < 2; i++) {
+		_innov.flow_innov[i] = r(i);
+		_innov.flow_innov_var[i] = S(i, i);
+	}
 
 	if (_sensorFlow.shouldCorrect()) {
 		//ROS_INFO("dP");

@@ -72,7 +72,7 @@ void IEKF::correctLand(uint64_t timestamp)
 	Vector<float, Y_land::n> r = y - yh;
 
 	// define R
-	Matrix<float, Y_land::n, Y_land::n> R;
+	SquareMatrix<float, Y_land::n> R;
 	float var_vxy = land_sigma_vxy * land_sigma_vxy / dt;
 	float var_vz = land_sigma_vz * land_sigma_vz / dt;
 	float var_agl = land_sigma_agl * land_sigma_agl / dt;
@@ -91,7 +91,11 @@ void IEKF::correctLand(uint64_t timestamp)
 	H(Y_land::agl, Xe::terrain_asl) = -1;
 
 	// kalman correction
-	_sensorLand.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_land::n> S;
+	_sensorLand.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	// XXX ekf2 doesn't have a place for this innovation
 
 	if (_sensorLand.shouldCorrect()) {
 		setX(applyErrorCorrection(_dxe));

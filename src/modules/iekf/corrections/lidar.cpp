@@ -74,7 +74,7 @@ void IEKF::correctLidar(const distance_sensor_s *msg)
 	r(0) = y - yh;
 
 	// define R
-	Matrix<float, Y_distance_down::n, Y_distance_down::n> R;
+	SquareMatrix<float, Y_distance_down::n> R;
 	R(Y_distance_down::d, Y_distance_down::d) = 2.5e-4f / dt;
 
 	// define H
@@ -89,7 +89,12 @@ void IEKF::correctLidar(const distance_sensor_s *msg)
 	H(Y_distance_down::d, Xe::terrain_asl) = -x1;
 
 	// kalman correction
-	_sensorLidar.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_distance_down::n> S;
+	_sensorLidar.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	_innov.hagl_innov = r(0);
+	_innov.hagl_innov_var = S(0, 0);
 
 	if (_sensorLidar.shouldCorrect()) {
 		setX(applyErrorCorrection(_dxe));

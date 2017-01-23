@@ -278,7 +278,7 @@ const float baro_sigma_rw = 1.2e-1; // m / sqrt(s)
 const float baro_sigma_rrw = 0.0f; // (m/s) / sqrt(s)
 const float baro_correlation_time = 1e3f; // s
 
-const float mag_sigma_rw = 4.7e-3f; // rad / sqrt(s)
+const float mag_sigma_rw = 10 * 4.7e-3f; // rad / sqrt(s)
 const float mag_sigma_rrw = 0; // (ga/s) / sqrt(s)
 const float mag_correlation_time = 500.0f; // s
 
@@ -323,7 +323,7 @@ const float baro_sigma_rw = 5.68e-2f; // m / sqrt(s)
 const float baro_sigma_rrw = 3.80e-2f; // (m/s) / sqrt(s)
 const float baro_correlation_time = 13e3f; // s
 
-const float mag_sigma_rw = 2 * 5.43e-3; // normalized mag / sqrt(s)
+const float mag_sigma_rw = 10 * 5.43e-3; // normalized mag / sqrt(s)
 const float mag_sigma_rrw = 3.34e-5; // (normalized mag /s) / sqrt(s)
 const float mag_correlation_time = 1367; // s
 

@@ -61,7 +61,7 @@ void IEKF::correctMag(const sensor_combined_s *msg)
 	//ROS_INFO("mag r: %10.4f\n", double(r(0)));
 
 	// define R
-	Matrix<float, Y_mag::n, Y_mag::n> R;
+	SquareMatrix<float, Y_mag::n> R;
 	R(Y_mag::hdg, Y_mag::hdg) = mag_sigma_rw * mag_sigma_rw / dt;
 
 	// define H
@@ -69,7 +69,12 @@ void IEKF::correctMag(const sensor_combined_s *msg)
 	H(Y_mag::hdg, Xe::rot_D) = 1;
 
 	// kalman correction
-	_sensorMag.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_mag::n> S;
+	_sensorMag.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	_innov.heading_innov = r(0);
+	_innov.heading_innov_var = S(0, 0);
 
 	if (_sensorMag.shouldCorrect()) {
 		// don't allow correction of roll/ pitch

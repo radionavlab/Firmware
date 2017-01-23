@@ -43,14 +43,14 @@ IEKF::IEKF() :
 	_sensorAccel("accel", betaMaxDefault, condMaxDefault, 50),
 	_sensorMag("mag", betaMaxDefault, condMaxDefault, 50),
 	_sensorBaro("baro", betaMaxDefault, condMaxDefault, 50),
-	_sensorGps("gps", betaMaxDefault, condMaxDefault, 0),
-	_sensorAirspeed("airspeed", betaMaxDefault, condMaxDefault, 0),
-	_sensorFlow("flow", betaMaxDefault, condMaxDefault, 0),
-	_sensorSonar("sonar", betaMaxDefault, condMaxDefault, 0),
-	_sensorLidar("lidar", betaMaxDefault, condMaxDefault, 0),
-	_sensorVision("vision", betaMaxDefault, condMaxDefault, 0),
-	_sensorMocap("mocap", betaMaxDefault, condMaxDefault, 0),
-	_sensorLand("land_detected", betaMaxDefault, condMaxDefault, 0),
+	_sensorGps("gps", betaMaxDefault, condMaxDefault, 10),
+	_sensorAirspeed("airspeed", betaMaxDefault, condMaxDefault, 10),
+	_sensorFlow("flow", betaMaxDefault, condMaxDefault, 20),
+	_sensorSonar("sonar", betaMaxDefault, condMaxDefault, 20),
+	_sensorLidar("lidar", betaMaxDefault, condMaxDefault, 20),
+	_sensorVision("vision", betaMaxDefault, condMaxDefault, 10),
+	_sensorMocap("mocap", betaMaxDefault, condMaxDefault, 10),
+	_sensorLand("land_detected", betaMaxDefault, condMaxDefault, 10),
 	// subscriptions
 	_subImu(_nh.subscribe("sensor_combined", 0, &IEKF::callbackImu, this, 1)),
 	_subGps(_nh.subscribe("vehicle_gps_position", 0, &IEKF::correctGps, this, 100)),
@@ -66,6 +66,7 @@ IEKF::IEKF() :
 	_pubGlobalPosition(_nh.advertise<vehicle_global_position_s>("vehicle_global_position", 0)),
 	_pubControlState(_nh.advertise<control_state_s>("control_state", 0)),
 	_pubEstimatorStatus(_nh.advertise<estimator_status_s>("estimator_status", 0)),
+	_pubInnov(_nh.advertise<estimator_status_s>("ekf2_innovations", 0)),
 	// data
 	_x0(),
 	_xMin(),
@@ -88,7 +89,8 @@ IEKF::IEKF() :
 	_imuLowRateIndex(0),
 	_accelSaturated(false),
 	_gyroSaturated(false),
-	_A(), _Q(), _dxe(), _dP()
+	_A(), _Q(), _dxe(), _dP(),
+	_innov()
 {
 	// for quaterinons we bound at 2
 	// so it has a chance to
@@ -755,6 +757,10 @@ void IEKF::boundX()
 
 void IEKF::publish()
 {
+	if (!_attitudeInitialized) {
+		return;
+	}
+
 	//ROS_INFO("x:");
 	//_x.print();
 
@@ -781,7 +787,7 @@ void IEKF::publish()
 	float airspeed = -wind_rel_b(0); // body -x component aligned with pitot tube
 
 	// publish attitude
-	if (_attitudeInitialized()) {
+	{
 		vehicle_attitude_s msg = {};
 		msg.timestamp = now.toNSec() / 1e3;
 		msg.q[0] = _x(X::q_nb_0);
@@ -798,7 +804,7 @@ void IEKF::publish()
 	{
 		vehicle_local_position_s msg = {};
 		msg.timestamp = now.toNSec() / 1e3;
-		msg.xy_valid = positionValid;
+		msg.xy_valid = getPositionXYValid();
 		msg.z_valid = getAltitudeValid();
 		msg.v_xy_valid = getVelocityXYValid();
 		msg.v_z_valid = getVelocityZValid();
@@ -942,5 +948,11 @@ void IEKF::publish()
 		msg.hagl_test_ratio = _sensorLidar.getBeta();
 		msg.solution_status_flags = 0; // TODO
 		_pubEstimatorStatus.publish(msg);
+	}
+
+	// ekf_innovations
+	{
+		_innov.timestamp = now.toNSec() / 1e3;
+		_pubInnov.publish(_innov);
 	}
 }

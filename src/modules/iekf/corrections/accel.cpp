@@ -95,7 +95,17 @@ void IEKF::correctAccel(const sensor_combined_s *msg)
 	}
 
 	// kalman correction
-	_sensorAccel.kalmanCorrectCond(_P, H, R, r, _dxe, _dP);
+	SquareMatrix<float, Y_accel::n> S;
+	_sensorAccel.kalmanCorrectCond(_P, H, R, r, _dxe, _dP, S);
+
+	// store innovation
+	// XXX we store this into mag since EKF2 handles
+	// this differently, we use just heading for mag
+	// and EKF2 doesn't have this correction
+	for (int i = 0; i < 3; i++) {
+		_innov.mag_innov[i] = r(i);
+		_innov.mag_innov_var[i] = S(i, i);
+	}
 
 	if (_sensorAccel.shouldCorrect()) {
 		// don't allow correction of yaw
