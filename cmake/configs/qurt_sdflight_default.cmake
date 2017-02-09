@@ -101,6 +101,9 @@ set(config_module_list
 	# sources for muorb over fastrpc
 	#
 	modules/muorb/adsp
+
+    # Custom modules
+    modules/hello_sky
 	)
 
 set(config_df_driver_list

@@ -58,6 +58,7 @@ set(config_module_list
 	modules/simulator
 	modules/commander
 	modules/navigator
+    modules/hello_sky
 
 	lib/controllib
 	lib/mathlib
@@ -77,4 +78,5 @@ set(config_module_list
 	platforms/posix/work_queue
 
 	examples/px4_simple_app
+
 	)

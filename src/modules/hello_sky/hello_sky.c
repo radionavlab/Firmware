@@ -10,10 +10,10 @@
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_attitude.h>
 
-__EXPORT int px4_simple_app_main(int argc, char * argv[]);
+__EXPORT int hello_sky_main(int argc, char * argv[]);
 
 
-int px4_simple_app_main(int argc, char *argv[])
+int hello_sky_main(int argc, char *argv[])
 {
     PX4_INFO("Hello sky!");
 
