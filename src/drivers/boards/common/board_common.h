@@ -186,6 +186,48 @@
 
 
 /************************************************************************************
+ * Public Data
+ ************************************************************************************/
+
+/* board reset control */
+
+typedef enum board_reset_e {
+	board_reset_normal           = 0,  /* Perform a normal reset */
+	board_reset_extended         = 1,  /* Perform an extend reset as defined by board */
+	board_reset_power_off        = 2,  /* Reset to the boot loader, signaling a power off */
+	board_reset_enter_bootloader = 3   /* Perform a reset to the boot loader */
+} board_reset_e;
+
+/* Defined the types used for board UUID and MFG UID
+ *
+ * A type suitable for holding the byte format of the UUID
+ *
+ * The original PX4 stm32 (legacy) based implementation **displayed** the
+ * UUID as: ABCD EFGH IJKL
+ * Where:
+ *       A was bit 31 and D was bit 0
+ *       E was bit 63 and H was bit 32
+ *       I was bit 95 and L was bit 64
+ *
+ * Since the string was used by some manufactures to identify the units
+ * it must be preserved.
+ *
+ * For new targets moving forward we will use
+ *      IJKL EFGH ABCD
+ */
+
+/* A type suitable for defining the 8 bit format of the UUID */
+typedef uint8_t uuid_byte_t[PX4_CPU_UUID_BYTE_LENGTH];
+
+/* A type suitable for defining the 32bit format of the UUID */
+typedef uint32_t uuid_uint32_t[PX4_CPU_UUID_WORD32_LENGTH];
+
+/* A type suitable for defining the 8 bit format of the MFG UID
+ * This is always returned as MSD @ index 0 -LSD @ index PX4_CPU_MFGUID_BYTE_LENGTH-1
+ */
+typedef uint8_t mfguid_t[PX4_CPU_MFGUID_BYTE_LENGTH];
+
+/************************************************************************************
  * Private Functions
  ************************************************************************************/
 
@@ -241,3 +283,137 @@ __EXPORT int board_get_dma_usage(uint16_t *dma_total, uint16_t *dma_used, uint16
 __EXPORT void board_rc_input(bool invert_on);
 #  endif
 #endif
+
+/************************************************************************************
+ * Name: board_reset
+ *
+ * Description:
+ *   All boards my optionally provide this API to reset the board
+ *
+ ************************************************************************************/
+#if defined(BOARD_HAS_NO_RESET)
+#  define board_system_reset(status)
+#else
+__EXPORT void board_system_reset(int status) noreturn_function;
+#endif
+
+#if !defined(BOARD_HAS_POWER_CONTROL)
+#define px4_board_pwr(switch_on) { do {} while(0); }
+#endif
+/************************************************************************************
+ * Name: board_set_bootload_mode
+ *
+ * Description:
+ *   All boards my optionally provide this API to enter configure the entry to
+ *   boot loade mode on the next system reset.
+ *
+ ************************************************************************************/
+
+#if defined(BOARD_HAS_NO_BOOTLOADER)
+#  define board_set_bootload_mode(mode)
+#else
+__EXPORT int board_set_bootload_mode(board_reset_e mode);
+#endif
+
+#if !defined(BOARD_OVERRIDE_UUID)
+/************************************************************************************
+ * Name: board_get_uuid
+ *
+ * Description:
+ *   All boards either provide a way to read a uuid of PX4_CPU_UUID_BYTE_LENGTH
+ *   from PX4_CPU_UUID_ADDRESS in the SoC's address space OR define
+ *   BOARD_OVERRIDE_UUID as an array of bytes that is PX4_CPU_UUID_BYTE_LENGTH
+ *
+ ************************************************************************************/
+
+__EXPORT void board_get_uuid(uuid_byte_t uuid_bytes);
+
+/************************************************************************************
+ * Name: board_get_uuid32
+ *
+ * Description:
+ *   All boards either provide a way to read a uuid of PX4_CPU_UUID_WORD32_LENGTH
+ *   from PX4_CPU_UUID_ADDRESS in the Soc's address space OR define
+ *   BOARD_OVERRIDE_UUID as an array of bytes that is PX4_CPU_UUID_BYTE_LENGTH
+ *   On Legacy (stm32) targets the raw32 format is the result of coping returning
+ *   the 32bit words from low memory to high memory. On new targets the result
+ *   will be an array of words with the MSW at index 0 and the LSW: at index
+ *   PX4_CPU_UUID_WORD32_LENGTH-1.
+ *
+ *	 The ordering can optionally be set by defining
+ *	 PX4_CPU_UUID_WORD32_FORMAT_ORDER
+ *
+ ************************************************************************************/
+__EXPORT void board_get_uuid32(uuid_uint32_t uuid_words);
+
+/************************************************************************************
+ * Name: board_get_uuid32_formated
+ *
+ * Description:
+ *   All boards either provide a way to retrieve a uuid and format it
+ *   or define BOARD_OVERRIDE_UUID
+ *   The format can optionally be reordered if PX4_CPU_UUID_WORD32_FORMAT_ORDER is
+ *   defined and printed with the optional separator
+ *
+ *   With seperator = ":"
+ *   31-00:63-32:95-64
+ *   32383336:412038:33355110
+ *   With seperator = " "
+ *   31-00:63-32:95-64
+ *   32383336 412038 33355110
+ *   With seperator = NULL
+ *   31-00:63-32:95-64
+ *   3238333641203833355110
+ *
+ ************************************************************************************/
+__EXPORT int board_get_uuid32_formated(char *format_buffer, int size,
+				       const char *format,
+				       const char *seperator);
+#endif // !defined(BOARD_OVERRIDE_UUID)
+
+#if !defined(BOARD_OVERRIDE_MFGUID)
+/************************************************************************************
+ * Name: board_get_mfguid
+ *
+ * Description:
+ *   All boards either provide a way to retrieve a manafactuers Uniqe ID or
+ *   define BOARD_OVERRIDE_MFGUID.
+ *    The MFGUID is returned as an array of bytes in
+ *    MSD @ index 0 - LSD @ index PX4_CPU_MFGUID_BYTE_LENGTH-1
+ *
+ ************************************************************************************/
+
+int board_get_mfguid(mfguid_t mfgid);
+
+/************************************************************************************
+ * Name: board_get_mfguid_formated
+ *
+ * Description:
+ *   All boards either provide a way to retrieve a formatted string of the
+ *   manafactuers Uniqe ID or define BOARD_OVERRIDE_MFGUID
+ *
+ ************************************************************************************/
+
+int board_get_mfguid_formated(char *format_buffer, int size);
+#endif // !defined(BOARD_OVERRIDE_MFGUID)
+
+/************************************************************************************
+ * Name: board_mcu_version
+ *
+ * Description:
+ *   All boards either provide a way to retrieve the cpu revision
+ *   Or define BOARD_OVERRIDE_CPU_VERSION
+ *
+ * rev    - The silicon revision character
+ * revstr - The full chip name string
+ * errata  -The eratta if any.
+ *
+ * return  - The silicon revision / version number as integer
+ *           or -1 on error and rev, revstr and errata will
+ *           not be set
+ */
+#if defined(BOARD_OVERRIDE_CPU_VERSION)
+#define board_mcu_version(rev, revstr, errata) BOARD_OVERRIDE_CPU_VERSION
+#else
+__EXPORT int board_mcu_version(char *rev, const char **revstr, const char **errata);
+#endif // !defined(BOARD_OVERRIDE_CPU_VERSION)

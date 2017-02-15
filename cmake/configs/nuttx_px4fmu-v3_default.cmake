@@ -95,6 +95,7 @@ set(config_module_list
 	# General system control
 	#
 	modules/commander
+	modules/events
 	modules/gpio_led
 	modules/land_detector
 	modules/load_mon
@@ -185,7 +186,7 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/example_fixedwing_control
-	#examples/fixedwing_control
+	examples/fixedwing_control
 
 	# Hardware test
 	#examples/hwtest
