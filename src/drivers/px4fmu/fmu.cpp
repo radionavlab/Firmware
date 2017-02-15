@@ -390,6 +390,8 @@ PX4FMU::PX4FMU() :
 		raw_rc_values[i] = UINT16_MAX;
 	}
 
+	raw_rc_count = 0;
+
 #ifdef GPIO_SBUS_INV
 	// this board has a GPIO to control SBUS inversion
 	px4_arch_configgpio(GPIO_SBUS_INV);
@@ -3298,15 +3300,6 @@ fmu_main(int argc, char *argv[])
 	if (!strcmp(verb, "stop")) {
 		fmu_stop();
 		errx(0, "FMU driver stopped");
-	}
-
-	if (!strcmp(verb, "id")) {
-		uint8_t id[12];
-		(void)get_board_serial(id);
-
-		errx(0, "Board serial:\n %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X",
-		     (unsigned)id[0], (unsigned)id[1], (unsigned)id[2], (unsigned)id[3], (unsigned)id[4], (unsigned)id[5],
-		     (unsigned)id[6], (unsigned)id[7], (unsigned)id[8], (unsigned)id[9], (unsigned)id[10], (unsigned)id[11]);
 	}
 
 	if (fmu_start() != OK) {

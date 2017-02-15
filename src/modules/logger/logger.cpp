@@ -31,6 +31,7 @@
  *
  ****************************************************************************/
 
+#include <px4_config.h>
 #include "logger.h"
 #include "messages.h"
 
@@ -59,7 +60,6 @@
 #include <systemlib/mavlink_log.h>
 #include <replay/definitions.hpp>
 #include <version/version.h>
-#include <systemlib/mcu_version.h>
 
 #ifdef __PX4_DARWIN
 #include <sys/param.h>
@@ -268,12 +268,12 @@ void Logger::run_trampoline(int argc, char *argv[])
 
 	int myoptind = 1;
 	int ch;
-	const char *myoptarg = NULL;
+	const char *myoptarg = nullptr;
 
 	while ((ch = px4_getopt(argc, argv, "r:b:etfm:q:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'r': {
-				unsigned long r = strtoul(myoptarg, NULL, 10);
+				unsigned long r = strtoul(myoptarg, nullptr, 10);
 
 				if (r <= 0) {
 					r = 1e6;
@@ -288,7 +288,7 @@ void Logger::run_trampoline(int argc, char *argv[])
 			break;
 
 		case 'b': {
-				unsigned long s = strtoul(myoptarg, NULL, 10);
+				unsigned long s = strtoul(myoptarg, nullptr, 10);
 
 				if (s < 1) {
 					s = 1;
@@ -325,7 +325,7 @@ void Logger::run_trampoline(int argc, char *argv[])
 			break;
 
 		case 'q':
-			queue_size = strtoul(myoptarg, NULL, 10);
+			queue_size = strtoul(myoptarg, nullptr, 10);
 
 			if (queue_size == 0) {
 				queue_size = 1;
@@ -531,7 +531,6 @@ void Logger::add_default_topics()
 	add_topic("satellite_info");
 	add_topic("vehicle_attitude_setpoint", 20);
 	add_topic("vehicle_rates_setpoint", 10);
-	add_topic("actuator_controls", 20);
 	add_topic("actuator_controls_0", 20);
 	add_topic("actuator_controls_1", 20);
 	add_topic("vehicle_local_position", 100);
@@ -559,7 +558,7 @@ void Logger::add_default_topics()
 	add_topic("cpuload");
 	add_topic("gps_dump"); //this will only be published if GPS_DUMP_COMM is set
 	add_topic("sensor_preflight");
-	add_topic("low_stack");
+	add_topic("task_stack_info");
 
 	/* for estimator replay (need to be at full rate) */
 	add_topic("sensor_combined");
@@ -587,7 +586,7 @@ int Logger::add_topics_from_file(const char *fname)
 	/* open the topic list file */
 	fp = fopen(fname, "r");
 
-	if (fp == NULL) {
+	if (fp == nullptr) {
 		return -1;
 	}
 
@@ -597,7 +596,7 @@ int Logger::add_topics_from_file(const char *fname)
 		/* get a line, bail on error/EOF */
 		line[0] = '\0';
 
-		if (fgets(line, sizeof(line), fp) == NULL) {
+		if (fgets(line, sizeof(line), fp) == nullptr) {
 			break;
 		}
 
@@ -1422,10 +1421,10 @@ void Logger::write_version()
 	write_info("sys_toolchain", px4_toolchain_name());
 	write_info("sys_toolchain_ver", px4_toolchain_version());
 
-	char revision;
-	char *chip_name;
+	char revision = 'U';
+	const char *chip_name = nullptr;
 
-	if (mcu_version(&revision, &chip_name) >= 0) {
+	if (board_mcu_version(&revision, &chip_name, nullptr) >= 0) {
 		char mcu_ver[64];
 		snprintf(mcu_ver, sizeof(mcu_ver), "%s, rev. %c", chip_name, revision);
 		write_info("sys_mcu", mcu_ver);
@@ -1439,10 +1438,8 @@ void Logger::write_version()
 		param_get(write_uuid_param, &write_uuid);
 
 		if (write_uuid == 1) {
-			uint32_t uuid[3];
-			mcu_unique_id(uuid);
-			char uuid_string[sizeof(uint32_t) * 3 * 2 + 1];
-			snprintf(uuid_string, sizeof(uuid_string), "%08x%08x%08x", uuid[0], uuid[1], uuid[2]);
+			char uuid_string[PX4_CPU_UUID_WORD32_FORMAT_SIZE];
+			board_get_uuid32_formated(uuid_string, sizeof(uuid_string), "%08X", NULL);
 			write_info("sys_uuid", uuid_string);
 		}
 	}

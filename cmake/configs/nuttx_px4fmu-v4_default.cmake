@@ -92,6 +92,7 @@ set(config_module_list
 	# General system control
 	#
 	modules/commander
+	modules/events
 	modules/load_mon
 	modules/navigator
 	modules/mavlink
@@ -184,7 +185,7 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/example_fixedwing_control
-	#examples/fixedwing_control
+	examples/fixedwing_control
 
 	# Hardware test
 	#examples/hwtest
