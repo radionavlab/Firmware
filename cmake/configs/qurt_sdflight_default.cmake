@@ -104,6 +104,7 @@ set(config_module_list
 
     # Custom modules
     modules/hello_sky
+    modules/attitude_monitor
 	)
 
 set(config_df_driver_list

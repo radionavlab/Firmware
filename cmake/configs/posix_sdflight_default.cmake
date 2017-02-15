@@ -59,6 +59,7 @@ set(config_module_list
 	modules/commander
 	modules/navigator
     modules/hello_sky
+    modules/attitude_monitor
 
 	lib/controllib
 	lib/mathlib
