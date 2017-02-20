@@ -6,8 +6,6 @@
 #include <poll.h>
 #include <string.h>
 
-#include <ros/ros.h>
-
 #include <uORB/uORB.h>
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_attitude.h>
