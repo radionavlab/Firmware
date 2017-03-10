@@ -424,7 +424,6 @@ PARAM_DEFINE_FLOAT(MPC_HOLD_XY_DZ, 0.1f);
  */
 PARAM_DEFINE_FLOAT(MPC_HOLD_Z_DZ, 0.1f);
 
-
 /**
  * Maximum horizontal velocity for which position hold is enabled (use 0 to disable check)
  *
